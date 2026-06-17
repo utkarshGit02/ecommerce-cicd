@@ -1,8 +1,6 @@
 -- Run this file to set up your MySQL database
 -- mysql -u root -p < server/config/schema.sql
 
-CREATE DATABASE IF NOT EXISTS ecommerce_db;
-USE ecommerce_db;
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (

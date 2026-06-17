@@ -86,7 +86,7 @@ Every push to `main` triggers:
 See `.github/workflows/ci.yml` for the full pipeline.
 
 ## Project Structure
-
+##
 ```
 ecommerce/
 ├── client/                  # React frontend (Vite)
