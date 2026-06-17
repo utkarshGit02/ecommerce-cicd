@@ -22,6 +22,7 @@ export function CartProvider({ children }) {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchCart(); }, [user]);
 
   const addToCart = async (product_id, quantity = 1) => {
