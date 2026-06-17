@@ -7,84 +7,88 @@ on:
     branches: [Main]
 
 jobs:
-  # ── Job 1: Test & lint the Node.js backend ──────────────────────────────
   server-ci:
     name: Server — Test & Lint
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: server
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: server/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
+      - run: npm ci
+      - run: npm test
         env:
           NODE_ENV: test
           JWT_SECRET: test_secret_for_ci_only
 
-  # ── Job 2: Lint & build the React frontend ──────────────────────────────
   client-ci:
     name: Client — Lint & Build
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: client
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: client/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Run tests
-        run: npm test
-
-      - name: Build
-        run: npm run build
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
         env:
           VITE_API_URL: /api
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: client-dist
           path: client/dist
           retention-days: 3
 
-  # ── Job 3: Deploy (only on push to Main, after CI passes) ───────────────
-  deploy:
-    name: Deploy to production
+  docker-build:
+    name: Docker — Build & Verify Images
     needs: [server-ci, client-ci]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/Main' && github.event_name == 'push'
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy server to Render
-        run: |
-          echo "Triggering Render deploy hook..."
-          curl -s "${{ secrets.RENDER_DEPLOY_HOOK }}" || echo "No deploy hook set yet"
+      - name: Build server image
+        run: docker build -t ecommerce-server:ci ./server
 
+      - name: Build client image
+        run: docker build -t ecommerce-client:ci --build-arg VITE_API_URL=/api ./client
+
+      - name: Smoke-test the server image
+        run: |
+          docker run -d --name server-smoke \
+            -e JWT_SECRET=ci_secret \
+            -e DB_HOST=invalid-host-on-purpose \
+            -p 5000:5000 ecommerce-server:ci
+          sleep 3
+          docker logs server-smoke
+          docker stop server-smoke
+
+      - name: Smoke-test the client image
+        run: |
+          docker run -d --name client-smoke -p 8080:80 ecommerce-client:ci
+          sleep 2
+          curl -f http://localhost:8080 || (docker logs client-smoke && exit 1)
+          docker stop client-smoke
+
+  deploy:
+    name: Deploy to production
+    needs: [docker-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/Main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy server to Render
+        run: curl -s "${{ secrets.RENDER_DEPLOY_HOOK }}" || echo "No deploy hook set yet"
       - name: Notify success
         run: echo "Deployed successfully at $(date)"
