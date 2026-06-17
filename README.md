@@ -13,7 +13,7 @@ React + Node.js + MySQL e-commerce app built for learning CI/CD with GitHub Acti
 | Deploy   | Vercel (frontend) + Render (backend) |
 
 ## Quick Start
-
+![CI/CD Pipeline](https://github.com/utkarshGit02/ecommerce-cicd/actions/workflows/ci.yml/badge.svg)
 ### 1. Clone and set up the database
 
 ```bash
